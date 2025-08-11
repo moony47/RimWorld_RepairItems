@@ -1,5 +1,6 @@
 ﻿using RimWorld;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Verse;
 using Verse.AI;
@@ -24,10 +25,13 @@ namespace MoonyRepair
         {
             this.FailOnDespawnedNullOrForbidden (TargetIndex.A);
             yield return Toils_Goto.GotoThing (TargetIndex.A, PathEndMode.Touch);
+
             Toil repair = ToilMaker.MakeToil ("MakeNewToils");
+
             repair.initAction = delegate () {
                 this.ticksToNextRepair = WarmupTicks;
             };
+
             repair.tickAction = delegate () {
                 Pawn actor = repair.actor;
                 actor.rotationTracker.FaceTarget (actor.CurJob.GetTarget (TargetIndex.A));
@@ -48,7 +52,7 @@ namespace MoonyRepair
                     this.TargetThingA.HitPoints = Mathf.Min (this.TargetThingA.HitPoints, this.TargetThingA.MaxHitPoints);
                     //Messages.Message ("", MessageTypeDefOf.NeutralEvent);
                     if (this.TargetThingA.HitPoints == this.TargetThingA.MaxHitPoints) {
-                        if (settings.removeTainted && TargetThingA.def.IsWithinCategory (ThingCategoryDefOf.Apparel)) {
+                        if (settings.removeTainted && TargetThingA.GetType().IsSubclassOf(typeof(Apparel))) {
                             Apparel apparelA = (Apparel) this.TargetThingA;
                             if (apparelA != null && apparelA.WornByCorpse) {
                                 if (apparelA.Wearer != null)
@@ -61,11 +65,13 @@ namespace MoonyRepair
                     }
                 }
             };
+
             repair.FailOnCannotTouch (TargetIndex.A, PathEndMode.Touch);
             repair.WithEffect (base.TargetThingA.def.repairEffect, TargetIndex.A, null);
             repair.defaultCompleteMode = ToilCompleteMode.Never;
             repair.activeSkill = (() => SkillDefOf.Crafting);
             repair.handlingFacing = true;
+
             yield return repair;
             yield break;
         }
@@ -79,34 +85,20 @@ namespace MoonyRepair
 
     public class WorkGiver_RepairApparel : WorkGiver_Scanner
     {
-        public ModExtension_RepairReferences Props => def.GetModExtension<ModExtension_RepairReferences> ();
+        public ModExtension_RepairReferences Props 
+            => def.GetModExtension<ModExtension_RepairReferences> ();
 
-        public override ThingRequest PotentialWorkThingRequest
-        {
-            get
-            {
-                return ThingRequest.ForGroup (ThingRequestGroup.Apparel);
-            }
-        }
+        public override ThingRequest PotentialWorkThingRequest 
+            => ThingRequest.ForGroup (ThingRequestGroup.Apparel);
 
-        public override PathEndMode PathEndMode
-        {
-            get
-            {
-                return PathEndMode.Touch;
-            }
-        }
+        public override PathEndMode PathEndMode 
+            => PathEndMode.Touch;
 
-        public override Danger MaxPathDanger (Pawn pawn)
-        {
-            return Danger.Deadly;
-        }
+        public override Danger MaxPathDanger (Pawn pawn) 
+            => Danger.Deadly;
 
-        public override IEnumerable<Thing> PotentialWorkThingsGlobal (Pawn pawn)
-        {
-            List<Thing> l = pawn.Map.listerThings.ThingsMatching (PotentialWorkThingRequest);
-            return l;
-        }
+        public override IEnumerable<Thing> PotentialWorkThingsGlobal (Pawn pawn) 
+            => pawn.Map.listerThings.ThingsMatching(PotentialWorkThingRequest);
 
         public override bool ShouldSkip (Pawn pawn, bool forced = false)
         {
@@ -117,13 +109,11 @@ namespace MoonyRepair
         public override bool HasJobOnThing (Pawn pawn, Thing t, bool forced = false)
         {
             if (!RepairUtility.PawnCanRepairNow (pawn, t))
-            {
                 return false;
-            }
+
             if (pawn.Faction == Faction.OfPlayer && !pawn.Map.areaManager.Home[t.Position])
-            {
                 return false;
-            }
+
             return pawn.CanReserve (t, 1, -1, null, forced) && !t.IsBurning ();
         }
 
@@ -135,32 +125,36 @@ namespace MoonyRepair
         }
     }
 
-    public class WorkGiver_RepairWeapon : WorkGiver_RepairApparel
-    {
+    public class WorkGiver_RepairWeapon : WorkGiver_RepairApparel {
         public override ThingRequest PotentialWorkThingRequest
-        {
-            get
-            {
-                return ThingRequest.ForGroup (ThingRequestGroup.Weapon);
-            }
-        }
+            => ThingRequest.ForGroup (ThingRequestGroup.Weapon);
     }
 
-    public class RepairUtility
+	//public class WorkGiver_RepairItem : WorkGiver_RepairApparel {
+	//	public override ThingRequest PotentialWorkThingRequest
+	//		=> ThingRequest.ForGroup(ThingRequestGroup.Everything);
+
+	//	public override IEnumerable<Thing> PotentialWorkThingsGlobal (Pawn pawn) {
+ //           var list = pawn.Map.listerThings.ThingsMatching(PotentialWorkThingRequest);
+ //           return list.Where(x => x.MaxHitPoints > 0);
+ //       }
+	//}
+
+	public class RepairUtility
     {
-
-
         public static bool PawnCanRepairNow (Pawn pawn, Thing t)
         {
+            if (!t.def.useHitPoints)
+                return false;
+
             RepairSettings settings = LoadedModManager.GetMod<RepairMod> ().GetSettings<RepairSettings> ();
 
             bool tIsWeapon = t.def.IsWithinCategory (ThingCategoryDefOf.Weapons);
             bool tIsArmour = t.def.IsWithinCategory (ThingCategoryDefOf.ApparelArmor) || t.def.IsWithinCategory (ThingCategoryDefOf.ArmorHeadgear);
             bool tIsClothing = t.def.IsWithinCategory (ThingCategoryDefOf.Apparel) && !tIsArmour;
 
-            bool tIsTainted = (tIsArmour || tIsClothing) && ((Apparel) t).WornByCorpse;
+            bool tIsTainted = (t.GetType().IsSubclassOf(typeof(Apparel)) && ((Apparel) t).WornByCorpse);
             bool tIsBiocoded = false;
-
 
             bool ans = PawnCanRepairEver (t, tIsWeapon, tIsArmour, tIsClothing, tIsTainted, tIsBiocoded, settings);
 
@@ -179,29 +173,30 @@ namespace MoonyRepair
             return ans;
         }
 
-        public static bool PawnCanRepairEver (Thing t, bool tIsWeapon, bool tIsArmour, bool tIsClothing, bool tIsTainted, bool tIsBiocoded, RepairSettings settings)
-        {
-            if (((ThingWithComps) t).GetComp<CompBiocodable> () != null)
-                tIsBiocoded = tIsWeapon && ((ThingWithComps) t).GetComp<CompBiocodable> ().Biocoded;
+        public static bool PawnCanRepairEver (Thing t, bool tIsWeapon, bool tIsArmour, bool tIsClothing, bool tIsTainted, bool tIsBiocoded, RepairSettings settings) {
+            if (t.GetType().IsSubclassOf(typeof(ThingWithComps)) && ((ThingWithComps) t).GetComp<CompBiocodable>() != null)
+                tIsBiocoded = tIsWeapon && ((ThingWithComps) t).GetComp<CompBiocodable>().Biocoded;
+            else
+                tIsBiocoded = false;
 
             bool ans = false;
-            if (tIsWeapon)
+            if (tIsWeapon) {
                 if (tIsBiocoded)
                     ans = settings.repairWeapons && settings.repairBiocoded;
                 else
                     ans = settings.repairWeapons;
-            else if (tIsArmour)
+            } else if (tIsArmour) {
                 if (tIsTainted)
                     ans = settings.repairArmour && settings.repairTainted;
                 else
                     ans = settings.repairArmour;
-            else if (tIsClothing)
+            } else if (tIsClothing) {
                 if (tIsTainted)
                     ans = settings.repairClothing && settings.repairTainted;
                 else
                     ans = settings.repairClothing;
-
-            ans &= t.def.useHitPoints;
+            } else
+                ans = settings.repairAnything;
 
             //Messages.Message (tIsWeapon.ToString () + " isweapon\n" + tIsArmour.ToString () + " isarmour\n" + tIsClothing.ToString () + " isclothing\n" + tIsTainted.ToString () + " istainted\n" + tIsBiocoded.ToString () + " isbiocoded\n" + ans.ToString() + " ans", MessageTypeDefOf.NeutralEvent);
 
@@ -211,6 +206,7 @@ namespace MoonyRepair
 
     public class RepairSettings : ModSettings
     {
+        public bool repairAnything = false;
         public bool repairWeapons = true;
         public bool repairClothing = true;
         public bool repairArmour = true;
@@ -226,7 +222,8 @@ namespace MoonyRepair
             Scribe_Values.Look (ref repairWeapons, "repairWeapons", true);
             Scribe_Values.Look (ref repairClothing, "repairClothing", true);
             Scribe_Values.Look (ref repairArmour, "repairArmour", true);
-            Scribe_Values.Look (ref repairTainted, "repairTainted", false);
+			Scribe_Values.Look (ref repairAnything, "repairAnything", false);
+			Scribe_Values.Look (ref repairTainted, "repairTainted", false);
             Scribe_Values.Look (ref repairBiocoded, "repairBiocoded", false);
             Scribe_Values.Look (ref removeTainted, "removeTainted", false);
             Scribe_Values.Look (ref repairThreshold, "repairThreshold", 1f);
@@ -249,13 +246,17 @@ namespace MoonyRepair
         public override void DoSettingsWindowContents (Rect inRect)
         {
             Listing_Standard listingStandard = new Listing_Standard ();
-            inRect.width = inRect.width / 3;
-            listingStandard.Begin (inRect);
+
+            Rect rect1 = inRect;
+			rect1.width = rect1.width / 3;
+
+            listingStandard.Begin (rect1);
 
             listingStandard.CheckboxLabeled ("Allow Weapons:", ref settings.repairWeapons, "Will repair valid weapons.");
             listingStandard.CheckboxLabeled ("Allow Clothing:", ref settings.repairClothing, "Will repair valid clothing.");
             listingStandard.CheckboxLabeled ("Allow Armour:", ref settings.repairArmour, "Will repair valid armour.");
-            listingStandard.Gap ();
+			listingStandard.CheckboxLabeled ("Allow Anything Else:", ref settings.repairAnything, "Will repair anything with hitpoints other than the above.");
+			listingStandard.Gap ();
             listingStandard.CheckboxLabeled ("Allow Tainted:", ref settings.repairTainted, "Tainted items can be valid targets.");
             listingStandard.CheckboxLabeled ("Allow Biocoded:", ref settings.repairBiocoded, "Biocoded items can be valid targets.");
             listingStandard.Gap ();
@@ -267,12 +268,23 @@ namespace MoonyRepair
             settings.repairThreshold = (Mathf.Round (listingStandard.Slider (settings.repairThreshold, 0f, 1f) * 100f)) / 100f;
             listingStandard.Gap ();
             listingStandard.CheckboxLabeled ("Repairing Removes Tainted:", ref settings.removeTainted, "Repairing a tainted item removes the tainted status.");
+			listingStandard.End();
 
-            //ThingFilter filter = new ThingFilter ();
-            //ThingFilterUI.DoThingFilterConfigWindow (inRect, new ThingFilterUI.UIState (), filter);
+			//ThingFilter filter = new ThingFilter();
+			////ThingFilterUI.DoThingFilterConfigWindow(inRect, new ThingFilterUI.UIState(), filter);
+   //         Listing_TreeThingFilter listingFilter = new Listing_TreeThingFilter(filter, null, null, null, null, new QuickSearchFilter());
 
-            listingStandard.End ();
-            base.DoSettingsWindowContents (inRect);
+   //         Rect rect2 = inRect;
+   //         rect2.width = rect2.width / 3;
+   //         rect2.x = rect2.x + 2 * rect2.width;
+
+   //         listingFilter.Begin(rect2);
+
+   //         listingFilter.ListCategoryChildren(new TreeNode_ThingCategory(ThingCategoryDefOf.Root), 0, new Map(), inRect);
+   //         listingFilter.End();
+
+
+			base.DoSettingsWindowContents (inRect);
         }
 
         public override string SettingsCategory ()

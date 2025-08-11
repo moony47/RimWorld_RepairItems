@@ -39,4 +39,22 @@
     </modExtensions>
   </WorkGiverDef>
 
+	<!--WorkGiverDef>
+		<defName>Moony_RepairItem</defName>
+		<label>repair damaged item</label>
+		<giverClass>MoonyRepair.WorkGiver_RepairItem</giverClass>
+		<workType>Crafting</workType>
+		<priorityInType>40</priorityInType>
+		<verb>repair</verb>
+		<gerund>repairing</gerund>
+		<requiredCapacities>
+			<li>Manipulation</li>
+		</requiredCapacities>
+		<nonColonistsCanDo>true</nonColonistsCanDo>
+		<modExtensions>
+			<li Class ="MoonyRepair.ModExtension_RepairReferences">
+				<repairJobDef>Moony_RepairItem</repairJobDef>
+			</li>
+		</modExtensions>
+	</WorkGiverDef-->
 </Defs>

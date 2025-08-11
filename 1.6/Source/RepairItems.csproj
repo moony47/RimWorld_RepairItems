@@ -34,6 +34,9 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
+  <PropertyGroup>
+    <RunPostBuildEvent>Always</RunPostBuildEvent>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="RepairItems.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -43,5 +46,21 @@
       <Version>1.6.4518</Version>
     </PackageReference>
   </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="JobDefs.xml" />
+    <Content Include="Patch_AssignRepairEffects.xml" />
+    <Content Include="WorkGiverDefs.xml" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>xcopy /y /s /i "D:\\dev\RepairItems" "C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\RepairItems"</PostBuildEvent>
+  </PropertyGroup>
 </Project>
